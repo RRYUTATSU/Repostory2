@@ -320,7 +320,7 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Daymark home">
+        <a className="brand" href="./" aria-label="Daymark home">
           <span className="brand-mark"><Check size={19} strokeWidth={2.7} /></span>
           <span>daymark<span className="brand-period">.</span></span>
         </a>
