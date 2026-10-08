@@ -24,3 +24,15 @@ build to be hosted from a subdirectory, such as `/task-manager/`.
 Pushes to `main` are built and published to GitHub Pages by
 `.github/workflows/deploy.yml`. The site is served at
 https://rryutatsu.github.io/Repostory2/.
+
+## Windows desktop app
+
+The same app is packaged for Windows with Electron (`electron/main.cjs`).
+
+```sh
+npm run desktop    # build and open the desktop window
+npm run dist:win   # build release/Daymark-Setup-<version>.exe and a portable .exe
+```
+
+`.github/workflows/windows-app.yml` builds the Windows installers on every push
+and pull request and uploads them as the `Daymark-Windows` artifact.
