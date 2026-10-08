@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Circle,
   Clock3,
+  Flag,
   LayoutDashboard,
   ListTodo,
   Plus,
@@ -50,6 +51,22 @@ function formatDueDate(value) {
   return `${formattedDate} · ${date.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit' })}`
 }
 
+function getDueStatus(value, isDone) {
+  const date = parseDueDate(value)
+  if (!date) return null
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const dueDay = new Date(date)
+  dueDay.setHours(0, 0, 0, 0)
+  const days = Math.round((dueDay - startOfToday) / 86400000)
+  if (isDone) return { tone: 'done', hint: '' }
+  if (days < 0) return { tone: 'overdue', hint: days === -1 ? 'Yesterday' : `${-days} days late` }
+  if (days === 0) return { tone: 'soon', hint: 'Today' }
+  if (days === 1) return { tone: 'soon', hint: 'Tomorrow' }
+  if (days <= 7) return { tone: 'upcoming', hint: `In ${days} days` }
+  return { tone: 'later', hint: '' }
+}
+
 function getDueTimeParts(value) {
   if (!value?.includes('T')) return { hour: '', minute: '00', period: 'AM' }
   const [hours, minutes] = value.split('T')[1].split(':')
@@ -61,7 +78,7 @@ function getDueTimeParts(value) {
   }
 }
 
-function SortableTask({ task, onEdit, onDelete, isRecentlyMoved, onArrivalAnimationEnd }) {
+function SortableTask({ task, onEdit, onDelete, onToggleDone, isRecentlyMoved, onArrivalAnimationEnd }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id })
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -70,6 +87,12 @@ function SortableTask({ task, onEdit, onDelete, isRecentlyMoved, onArrivalAnimat
     zIndex: isDragging ? 1 : undefined,
   }
   const priority = PRIORITIES[task.priority] || PRIORITIES.medium
+  const isDone = task.status === 'done'
+  const dueStatus = getDueStatus(task.dueDate, isDone)
+  const stopDrag = {
+    onPointerDown: (event) => event.stopPropagation(),
+    onKeyDown: (event) => event.stopPropagation(),
+  }
 
   return (
     <article
@@ -78,51 +101,53 @@ function SortableTask({ task, onEdit, onDelete, isRecentlyMoved, onArrivalAnimat
       {...attributes}
       {...listeners}
       onAnimationEnd={isRecentlyMoved ? onArrivalAnimationEnd : undefined}
-      className={`task-card${task.status === 'done' ? ' task-card-done' : ''}${isDragging ? ' task-card-dragging' : ''}${isRecentlyMoved ? ' task-card-arriving' : ''}`}
+      className={`task-card task-card-${priority.tone}${isDone ? ' task-card-done' : ''}${isDragging ? ' task-card-dragging' : ''}${isRecentlyMoved ? ' task-card-arriving' : ''}`}
     >
       <div className="task-card-top">
         <span className={`priority-pill priority-${priority.tone}`}>
-          <span className="priority-dot" />
+          <Flag size={11} strokeWidth={2.4} />
           {priority.label}
         </span>
         <div className="task-actions">
-          <button
-            type="button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-            onClick={() => onEdit(task)}
-            aria-label={`Edit ${task.title}`}
-            title="Edit task"
-          >
-            <span className="sr-only">Edit task</span>
+          <button type="button" {...stopDrag} onClick={() => onEdit(task)} aria-label={`Edit ${task.title}`} title="Edit task">
             <ArrowUpRight size={16} />
           </button>
-          <button
-            type="button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-            onClick={() => onDelete(task.id)}
-            aria-label={`Delete ${task.title}`}
-            title="Delete task"
-          >
-            <span className="sr-only">Delete task</span>
+          <button type="button" {...stopDrag} onClick={() => onDelete(task.id)} aria-label={`Delete ${task.title}`} title="Delete task">
             <Trash2 size={15} />
           </button>
         </div>
       </div>
-      <h3>{task.title}</h3>
-      {task.description && <p className="task-description">{task.description}</p>}
-      {task.dueDate && (
-        <div className="task-due">
-          <CalendarDays size={14} />
-          <span>{formatDueDate(task.dueDate)}</span>
+      <div className="task-body">
+        <button
+          type="button"
+          className="task-check"
+          {...stopDrag}
+          onClick={() => onToggleDone(task)}
+          aria-pressed={isDone}
+          aria-label={isDone ? `Mark ${task.title} as not done` : `Mark ${task.title} as done`}
+          title={isDone ? 'Mark as not done' : 'Mark as done'}
+        >
+          <Check size={12} strokeWidth={3} />
+        </button>
+        <div className="task-text">
+          <h3>{task.title}</h3>
+          {task.description && <p className="task-description">{task.description}</p>}
+        </div>
+      </div>
+      {dueStatus && (
+        <div className="task-footer">
+          <span className={`task-due task-due-${dueStatus.tone}`}>
+            <CalendarDays size={13} />
+            <span>{formatDueDate(task.dueDate)}</span>
+          </span>
+          {dueStatus.hint && <span className={`task-due-hint task-due-hint-${dueStatus.tone}`}>{dueStatus.hint}</span>}
         </div>
       )}
     </article>
   )
 }
 
-function Column({ column, tasks, onEdit, onDelete, onAddTask, recentlyMovedTaskId, onArrivalAnimationEnd }) {
+function Column({ column, tasks, onEdit, onDelete, onToggleDone, onAddTask, recentlyMovedTaskId, onArrivalAnimationEnd }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id })
   const Icon = column.icon
 
@@ -147,6 +172,7 @@ function Column({ column, tasks, onEdit, onDelete, onAddTask, recentlyMovedTaskI
               task={task}
               onEdit={onEdit}
               onDelete={onDelete}
+              onToggleDone={onToggleDone}
               isRecentlyMoved={task.id === recentlyMovedTaskId}
               onArrivalAnimationEnd={() => onArrivalAnimationEnd(task.id)}
             />
@@ -287,6 +313,11 @@ export default function App() {
     }
   }
 
+  const handleToggleDone = (task) => {
+    setRecentlyMovedTaskId(task.id)
+    setTasks((current) => current.map((item) => item.id === task.id ? { ...item, status: item.status === 'done' ? 'todo' : 'done' } : item))
+  }
+
   const handleAddTask = (columnId) => {
     setModalColumn(columnId)
     setModalTask({ id: Date.now().toString(), status: columnId })
@@ -394,6 +425,7 @@ export default function App() {
                   tasks={visibleTasks.filter((task) => task.status === column.id)}
                   onEdit={(task) => { setModalTask(task); setModalColumn(null) }}
                   onDelete={(id) => setTasks((current) => current.filter((task) => task.id !== id))}
+                  onToggleDone={handleToggleDone}
                   onAddTask={handleAddTask}
                   recentlyMovedTaskId={recentlyMovedTaskId}
                   onArrivalAnimationEnd={(id) => setRecentlyMovedTaskId((current) => current === id ? null : current)}

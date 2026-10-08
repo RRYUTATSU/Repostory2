@@ -1,13 +1,18 @@
 {
   "name": "task-manager",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "A calm, focused space to organize your tasks and make progress.",
+  "author": "RRYUTATSU",
+  "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "desktop": "vite build && electron .",
+    "dist:win": "vite build && electron-builder --win --publish never"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -22,9 +27,37 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.6.1",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
     "oxlint": "^1.81.0",
     "postcss": "^8.5.29",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.0"
+  },
+  "build": {
+    "appId": "io.github.rryutatsu.daymark",
+    "productName": "Daymark",
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "public/icons/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Daymark-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Daymark-${version}-portable.${ext}"
+    }
   }
 }
